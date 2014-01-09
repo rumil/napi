@@ -147,6 +147,7 @@ function display_help
     fi
 }
 
+
 #
 # @brief: check if the given file is a video file
 # @param: video filename
@@ -168,12 +169,25 @@ function check_extention
 }
 
 
+function 
+
+
+#
+# @brief: OpenSubtitles hashing function
+#
+function os_hash
+{
+	size=$(stat $g_StatParams "$1")
+	h=( $(($size & 0xffff)) $(( $(($size >> 16)) & 0xffff)) 0 0 )
+	o=$((size - 0x10000))
+}
+
 
 #
 # @brief: mysterious f() function
 # @param: md5sum
 #
-function f
+function napi_f
 {
     t_idx=( 0xe 0x3 0x6 0x8 0x2 )
     t_mul=( 2 2 5 4 3 )
@@ -202,7 +216,7 @@ function f
 # @param: hash
 # @param: outputfile
 #
-function get_subtitles
+function napi_get_subtitles
 {   
     url="http://napiprojekt.pl/unit_napisy/dl.php?l=$g_Lang&f=$1&t=$2&v=$g_Version&kolejka=false&nick=$g_User&pass=$g_Pass&napios=posix"
 
@@ -320,27 +334,27 @@ function download_subs
         output="$output_path/${base%.*}.$g_DefaultExt"
 		output_img="$output_path/${base%.*}.jpg"
 		conv_output="$output_path/ORIG_${base%.*}.$g_DefaultExt"
-	fExists=0
+		fExists=0
         
         if [[ -e "$output" ]] || [[ -e "$conv_output" ]]; then
-		fExists=1
-	fi
+			fExists=1
+		fi
 
-	if [[ $fExists -eq 1 ]] && [[ $g_Skip -eq 1 ]]; then	
+		if [[ $fExists -eq 1 ]] && [[ $g_Skip -eq 1 ]]; then	
             echo -e "[SKIP]\t[${base%.*}.$g_DefaultExt]:\tPlik z napisami juz istnieje !!!"
-	    g_Skipped=$(( $g_Skipped + 1 ))
+			g_Skipped=$(( $g_Skipped + 1 ))
             continue    
         else
             # md5sum and hash calculation
 			sum=$(dd if="$file" bs=1024k count=10 2> /dev/null | $g_Md5 | cut -d ' ' -f 1)
-			hash=$(f $sum)        
-			napiStatus=$(get_subtitles $sum $hash "$output")       
+			hash=$(napi_f $sum)        
+			napiStatus=$(napi_get_subtitles $sum $hash "$output")       
 			
             if [[ $napiStatus = "1" ]]; then
                 echo -e "[OK]\t[$base]:\tNapisy pobrano pomyslnie !!!"
-		g_Downloaded=$(( $g_Downloaded + 1 ))
+				g_Downloaded=$(( $g_Downloaded + 1 ))
                 
-		# conversion to different format requested
+				# conversion to different format requested
                 if [[ $g_SubotagePresence -eq 1 ]] && [[ $g_Format != "no_conversion" ]]; then
 					echo " -- Konwertuje napisy do formatu: [$g_Format]"
 				
@@ -378,19 +392,17 @@ function download_subs
 					# remove the old format if conversion was successful
 					[[ $? -eq 0 ]] && [[ "$output" != "$outputSubs" ]] && rm -f "$output"
 					echo " -- =================="
-		fi
+				fi
             else # [[ $napiStatus = "1" ]]
                 echo -e "[UNAV]\t[$base]:\tNapisy niedostepne !!!"
-		g_Unavailable=$(( $g_Unavailable + 1 ))
+				g_Unavailable=$(( $g_Unavailable + 1 ))
                 continue
-            
             fi # [[ $napiStatus = "1" ]]
             
             if [[ $g_Cover = "1" ]]; then
                 get_cover $sum "$output_img"
             fi
         fi # [[ $fExists -eq 1 ]] && [[ $g_Skip -eq 1 ]]
-
     done    
 }
 
