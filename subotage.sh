@@ -38,7 +38,7 @@ g_LineCounter=0
 g_Quiet=0
 
 # current version
-g_Version="0.15 alpha"
+g_Version="0.16 alpha"
 
 # supported subtitle file formats
 g_FileFormats=( "microdvd" "mpl2" "subrip" "tmplayer" "subviewer" "fab" )
@@ -327,7 +327,9 @@ function f_read_subviewer_format
     echo "secs" > "$g_ProcTmpFile"
 
     tail -n +"$2" "$1" | tr -d '\r' | 
-    awk "BEGIN { FS=\"\n\"; RS=\"\"; linecc=1; };
+    awk "BEGIN { 
+		FS=\"\n\"; RS=\"\"; linecc=1; 
+		};
         {   split(\$1, start, \",\");
             split(start[1], tm_start, \":\");
             split(start[2], tm_stop, \":\");
@@ -366,15 +368,23 @@ function f_read_tmplayer_format
     
         if [[ $delimiter = ":" ]]; then
             tail -n +"$2" "$1" | tr -d '\r' | 
-                awk "BEGIN { FS=\"$delimiter\" }; 
-                { 
-                    x=(\$1*3600+\$2*60+\$3 + ($g_LastingTime/1000));
-                    printf(\"%d %02d:%02d:%02d %02d:%02d:%02d \", NR, 
-                    \$1,\$2,\$3,
-                    (x/3600), ((x/60)%60), (x%60));
-                    for (i=4; i<=NF; i++) printf(\"%s\", \$i);
-                    printf \"\n\"; 
-                }" >> "$g_ProcTmpFile"      
+                awk "BEGIN { 
+						FS=\"$delimiter\";
+						line_processed = 1;
+					}; 
+					/^ *$/ {
+						next;
+					};
+					length { 
+						x=(\$1*3600+\$2*60+\$3 + ($g_LastingTime/1000));
+						printf(\"%d %02d:%02d:%02d %02d:%02d:%02d \", line_processed++, 
+							\$1,\$2,\$3,
+							(x/3600), ((x/60)%60), (x%60));
+
+						for (i=4; i<=NF; i++) 
+							printf(\"%s\", \$i);
+						printf \"\n\"; 
+					}" >> "$g_ProcTmpFile"      
         else
             tail -n +"$2" "$1" | tr -d '\r' | 
                 awk "BEGIN { FS=\"$delimiter\" }; 
@@ -444,9 +454,32 @@ function f_read_microdvd_format
 {   
     echo "secs" > $g_ProcTmpFile
     tail -n +"$2" "$1" | tr -d '\r' | 
-        awk "BEGIN { FS=\"[{}]+\" }; { printf \"%s %s %s \", NR, (\$2/$g_InputFrameRate), (\$3/$g_InputFrameRate);
-            for (i=4; i<=NF; i++) printf(\"%s\", \$i);
-            printf \"\n\"; }" >> "$g_ProcTmpFile"
+        awk "BEGIN { 
+				FS=\"[{}]+\";
+				txt_begin = 0;
+				line_processed = 1;
+			}; 
+			/^ *$/ {
+				next;
+			}
+			{
+				fstart=\$2;
+				if (\$3+0) {
+					txt_begin=4;
+					fend=\$3;
+				}
+				else {
+					txt_begin=3;
+					fend = \$2 + 5*$g_InputFrameRate;
+				}
+
+			   	printf \"%s %s %s \", line_processed++, 
+					(fstart/$g_InputFrameRate), (fend/$g_InputFrameRate);
+
+            	for (i=txt_begin; i<=NF; i++) 
+					printf(\"%s\", \$i);
+				printf \"\n\"; 
+			}" >> "$g_ProcTmpFile"
     echo 0
 }
 
@@ -455,9 +488,18 @@ function f_read_mpl2_format
 {
     echo "secs" > $g_ProcTmpFile
     tail -n +"$2" "$1" | tr -d '\r' | 
-        awk "BEGIN { FS=\"[][]+\" }; { printf \"%s %s %s \", NR, (\$2/10), (\$3/10);
-            for (i=4; i<=NF; i++) printf(\"%s\", \$i);
-            printf \"\n\"; }" >> "$g_ProcTmpFile"
+        awk "BEGIN { 
+				FS=\"[][]+\";
+				line_processed = 1;
+			}; 
+			/^ *$/ {
+				next;
+			}
+			length { 
+				printf \"%s %s %s \", line_processed++, (\$2/10), (\$3/10);
+				for (i=4; i<=NF; i++) printf(\"%s\", \$i);
+				printf \"\n\"; 
+			}" >> "$g_ProcTmpFile"
     echo 0
 }
 
@@ -469,8 +511,12 @@ function f_read_subrip_format
     if [[ "$3" == "inline" ]]; then
     
         tail -n +"$2" "$1" | tr -d '\r' | 
-            awk "BEGIN { FS=\"\n\"; RS=\"\"; };
-                {   gsub(\",\", \".\", \$1);
+            awk "BEGIN { 
+					FS=\"\n\"; 
+					RS=\"\"; 
+				};
+                length {  
+					gsub(\",\", \".\", \$1);
                     printf(\"%s \", \$1);
                     for (i=2; i<=NF; i++) {
                         if (i>2) printf(\"|\");
@@ -575,11 +621,13 @@ function f_write_tmplayer_format
     
     case $time_type in
     "secs")
-        tail -n +2  "$g_ProcTmpFile" |  tr -d '\r' |
-        awk "{ printf(\"%02d:%02d:%02d:\", 
-                (\$2/3600),((\$2/60)%60),(\$2%60));
-                for (i=4; i<=NF; i++) printf(\"%s \", \$i);
-                printf \"\n\" }" > "$1" 
+        tail -n +2  "$g_ProcTmpFile" | tr -d '\r' |
+        awk "{ 
+				printf(\"%02d:%02d:%02d:\", 
+					(\$2/3600),((\$2/60)%60),(\$2%60));
+				for (i=4; i<=NF; i++) printf(\"%s \", \$i);
+				printf \"\n\";
+			}" > "$1" 
     ;;
     
     "hms" | "hmsms")
@@ -914,6 +962,62 @@ function f_guess_format
     echo $detected_format
 }
 
+function f_correct_overlaps
+{
+    time_type=$(head -n 1 "$g_ProcTmpFile")
+	num_lines=$(($(wc -l "$g_ProcTmpFile" | cut -d ' ' -f 1) - 1))
+    
+	# now I need to rewrite the univeral file once again
+    case $time_type in
+    "secs")
+		# recreate the secs header
+		echo "secs" > "${g_ProcTmpFile}_2"
+        tail -n +2  "$g_ProcTmpFile" | tr -d '\r' |
+		awk "BEGIN {
+				previous_end = 0;			
+				cntr = 0;
+				line_cnt = 0;
+				
+			 }
+			 {				
+				 lines[cntr,0] = NF;
+				 for (i=1; i<=NF; i++) lines[cntr,i] = \$i;
+
+				 if (cntr == 0) {
+					 if ((lines[1,3]+0) > (lines[0,2]+0)) lines[1,3] = lines[0,2];
+				 }
+				 else {
+					 if ((lines[0,3]+0) > (lines[1,2]+0)) lines[0,3] = lines[1,2];
+				 }
+				 
+				 do {
+					 line_cnt++;
+					 cntr = (cntr + 1) % 2;
+
+					 if ((line_cnt >= 2 || line_cnt == $num_lines) && lines[cntr,0]>0) {
+						 printf \"%s %s %s \", lines[cntr,1], lines[cntr,2], lines[cntr,3];
+						 for (i=4; i<=lines[cntr,0]; i++) printf(\"%s \", lines[cntr,i]);
+						 printf \"\n\"; 
+					 }
+				 } while (line_cnt == $num_lines)
+			}" >> "${g_ProcTmpFile}_2"
+
+		# overwrite the original file
+		mv "${g_ProcTmpFile}_2" "${g_ProcTmpFile}"
+	;;
+    
+    "hms" | "hmsms")
+# it's very unlikely that a file in this format will have any overlapping time stamps
+# for the moment this is to be implemented
+	return
+    ;;
+    
+    *)
+    return
+    ;;
+    esac	
+}
+
 ###############################################################################
 ############################### common routines ###############################
 ###############################################################################
@@ -1198,6 +1302,7 @@ if [[ $status -ne 0 ]]; then
     f_print_error "Reading error. Error code: [$status]"
     exit
 else
+	f_correct_overlaps;
     status=$($g_Writer "$g_OutputFile")
     
     if [[ $status -ne 0 ]]; then
@@ -1207,7 +1312,7 @@ else
 fi
     
 # remove the temporary processing file
-#rm -rf "$g_ProcTmpFile"
+rm -rf "$g_ProcTmpFile"
 echo "Done"
 
 ###############################################################################
