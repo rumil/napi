@@ -304,17 +304,18 @@ f() {
 #
 get_subtitles() {   
     local url="http://napiprojekt.pl/unit_napisy/dl.php?l=$g_Lang&f=$1&t=$2&v=$g_Version&kolejka=false&nick=$g_User&pass=$g_Pass&napios=posix"
+	local tmp=`mktemp -t napi.XXXXXXXXXX`
 
     if [[ $g_Version = "other" ]]; then
-        wget -q -O napisy.7z "$url"
+        wget -q -O $tmp "$url"
         
         if [[ -z "$(builtin type -P 7z)" ]]; then
             f_print_error "7zip jest niedostepny\nzmodyfikuj zmienna g_Version tak by napi.sh identyfikowal sie jako \"pynapi\"" 
             exit
         fi
                 
-        7z x -y -so -p"$g_NapiPass" napisy.7z 2> /dev/null > "$3"
-        rm -rf napisy.7z
+        7z x -y -so -p"$g_NapiPass" $tmp 2> /dev/null > "$3"
+        rm -rf $tmp
     
         if [[ -s "$3" ]]; then
             echo "1"
@@ -323,13 +324,14 @@ get_subtitles() {
             rm -rf "$3"     
         fi
     else
-        wget -q -O "$3" "$url"
-        local size=$(stat $g_StatParams "$3")
+        wget -q -O $tmp "$url"
+        local size=$(stat $g_StatParams $tmp)
     
-        if [[ $size -le 4 ]]; then
+        if [[ $size -le 20 ]]; then
             echo "0"
-            rm -rf "$3"
+            rm -rf $tmp
         else
+			mv $tmp "$3"
             echo "1"            
         fi
     fi      
