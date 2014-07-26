@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# force indendation settings
+# vim: ts=4 shiftwidth=4 expandtab
+
 path_root=""
 
 if [[ -z "$1" ]]; then
@@ -26,7 +29,7 @@ fi
 if ! [[ -e gcc-3.0 ]]; then
 	tar jvxf gcc-3.0.tar.bz2
 	cd gcc-3.0
-	patch -p1 -i /vagrant/testcases/0001-collect-open-issue.patch
+	patch -p1 -i /vagrant/tests/0001-collect-open-issue.patch
 	cd ..
 fi
 
