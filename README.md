@@ -3,7 +3,7 @@
 
 This script is a napiprojekt.pl client written in bash. It automatically downloads subtitles from napiprojekt.pl database basing on the video file.
 
-This script works on Linux & OS X systems. It has very limited requirements and is mostly depending on bash and coreutils (which should be available on most modern systems, no perl or python is required).
+This script works on Linux & OS X systems. It has very limited requirements and is mostly depending on bash (it is proven to run from bash 2.04 - which makes ideal for embedded devices) and coreutils (which should be available on most modern systems, no perl or python is required).
 
 Usage example:
 ==============
@@ -78,6 +78,8 @@ Required External Tools
 - grep
 - awk
 - iconv (optional)
+- any of: ffmpeg/mediainfo/mplayer/mplayer2 (for fps detection - optional)
+- mktemp
 
 To check if the listed tools are available in your system and their functionality meets the subotage.sh script requirements please use the attached test_tools.sh script.
 
@@ -87,6 +89,56 @@ Availability
 napi.sh & subotage.sh are available in bundle in AUR - Arch Linux User Repository. The package is named bashnapi and can be installed through yaourt:
 
 yaourt -S bashnapi
+
+
+Instalation
+===========
+
+AUTOMATIC
+
+Use the install.sh script to copy napi.sh / subotage.sh to the bin directory (/usr/bin - bu default) and napi_common.sh library to a shared directory (/usr/share/napi - bu default).
+If you want to install into directories different than defaults specify them in install.sh invocation (USE ABSOLUTE PATHS ONLY).
+
+Examples
+	$ ./install.sh --bindir /bin --shareddir /shared
+	- this will install napi.sh & subotage.sh under /bin and napi_common.sh under /shared/napi
+
+or
+
+	$ ./install.sh --shareddir /my/custom/directory
+	- this will install napi.sh & subotage.sh under /usr/bin (default path) and napi_common.sh under /my/custom/directory/napi
+
+########################################
+
+MANUAL
+napi.sh & subotage.sh share some common code from napi_common.sh. Both of them are sourcing this file. Bellow is an example installation procedure given (executables under /usr/bin, libraries under /usr/shared/napi)
+
+1. Edit path to napi_common.sh in napi.sh & subotage.sh:
+
+Search for a variable NAPI_COMMON_PATH
+
+    38	
+    39	# verify presence of the napi_common library
+    40	declare -r NAPI_COMMON_PATH=
+
+and set it to /usr/shared/napi
+
+    38	
+    39	# verify presence of the napi_common library
+    40	declare -r NAPI_COMMON_PATH="/usr/shared/napi"
+
+2. Place the napi.sh & subotage.sh under /usr/bin:
+
+	$ cp -v napi.sh subotage.sh /usr/bin
+
+3. Create the /usr/shared/napi directory and place the library inside of it:
+
+	$ mkdir -p /usr/shared/napi
+	$ cp -v napi_common.sh /usr/shared/napi
+
+
+bashnapi bundle is now installed
+
 
 Colaboration
 ============

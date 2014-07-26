@@ -11,6 +11,7 @@ use Exporter ();
 use LWP::Simple;
 use Archive::Extract;
 use Carp;
+use File::Path qw/remove_tree/;
 
 our @EXPORT = qw/
 	prepare_env
@@ -18,7 +19,35 @@ our @EXPORT = qw/
 	prepare_shells
 /;
 
+
 our $path_root = "/home/vagrant";
+our $testspace = $path_root . '/testspace';
+our $assets = $path_root . '/napi_test_files';
+our $install_path = $path_root . '/napi_bin';
+
+sub prepare_fs {
+
+	my @dirs = (
+			'movies',
+			'mixed',
+			'unavailable',
+			'dir with white chars',
+			'dir with "quotation" marks',
+			'dir with \'quotation\' marks',
+			'dir_with_subdirs',
+			'special@[chars]-in.the.$$$.dir&#(name)-<%>'
+	);
+
+	foreach (@dirs) {
+		mkdir $testspace . '/' . "$_";
+	}
+}
+
+
+sub clean_testspace {
+	print "Cleaning testspace\n";
+	remove_tree glob $testspace . "/*";
+}
 
 
 sub prepare_assets {
@@ -26,7 +55,9 @@ sub prepare_assets {
 	my $assets_path = $path_root . '/' . $assets_tgz;
 	my $url = "https://www.dropbox.com/s/gq2wbfkl7ep1uy8/napi_test_files.tgz";
 
-	croak "assets directory already exists\n" and return if ( -e $path_root . '/napi_test_files' ); 
+	mkdir $testspace;
+	
+	croak "assets directory already exists\n" and return if ( -e $assets ); 
 	print "Downloading assets\n" and system("wget $url -O $assets_path")
 		unless ( -e $assets_path );
 
@@ -77,13 +108,16 @@ sub prepare_shells {
 	my $shell_bin_path = $path_root . '/' . $shell_bin_dir;
 	
 	my $url = "http://ftp.gnu.org/gnu/bash";
+	
+	# those are not supported at the moment
+	# bash-2.0.tar.gz
+	# bash-2.01.1.tar.gz
+	# bash-2.01.tar.gz
+	# bash-2.02.1.tar.gz
+	# bash-2.02.tar.gz
+	# bash-2.03.tar.gz
+
 	my @versions = qw/
-		bash-2.0.tar.gz
-		bash-2.01.1.tar.gz
-		bash-2.01.tar.gz
-		bash-2.02.1.tar.gz
-		bash-2.02.tar.gz
-		bash-2.03.tar.gz
 		bash-2.04.tar.gz
 		bash-2.05.tar.gz
 		bash-2.05a.tar.gz
@@ -130,5 +164,60 @@ sub prepare_shells {
 		$cnt++;
 	}
 }
+
+sub parse_summary {
+	my @strings = qw/
+		OK
+		UNAV
+		SKIP
+	   	CONV
+	   	COVER_OK
+	   	COVER_UNAV
+	   	TOTAL
+		/;
+
+	my %output = ();
+	my $input = shift // '';
+
+	($output{lc $_}) = ($input =~ m/#\d+:\d+\s*$_\s->\s(\d+)/g) foreach (@strings);
+	return %output;	
+}
+
+
+sub qx_tool {
+	my $shell = shift // '/bin/bash';
+	my $tool = shift // 'napi.sh';
+	my $arguments = shift // '';
+	return `$shell $install_path/$tool $arguments`;
+}
+
+
+sub system_tool {
+	my $shell = shift // '/bin/bash';
+	my $tool = shift // 'napi.sh';
+	my $arguments = shift // '';
+	return system("$shell $install_path/$tool $arguments") >> 8;
+}
+
+
+sub qx_napi {
+	return qx_tool(shift, 'napi.sh', shift);
+}
+
+
+sub qx_subotage {
+	return qx_tool(shift, 'subotage.sh', shift);
+}
+
+
+sub system_napi {
+	return system_tool(shift, 'napi.sh', shift);
+}
+
+
+sub system_subotage {
+	return system_tool(shift, 'subotage.sh', shift);
+}
+
 
 1;

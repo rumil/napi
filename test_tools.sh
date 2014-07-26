@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# force indendation settings
+# vim: ts=4 shiftwidth=4 expandtab
+
 test_tool() {
 	eval "$2" > /tmp/tmp_result 2> /tmp/tmp_err
 
@@ -17,7 +20,7 @@ test_tool() {
 }
 
 test_local_array() {
-	declare -a local a=( 1 2 3 4 5 )
+	declare -a a=( 1 2 3 4 5 )
 	local i=0
 
 	for i in $(seq 0 4); do
@@ -45,6 +48,7 @@ test_tool "find" "mkdir -p /tmp/test/xxx && find /tmp/test -type d -name xxx | g
 test_tool "seq" "seq 32 64 | grep -i 50"
 test_tool "dd" "dd if=/dev/urandom count=32 bs=1k of=/tmp/test.dd 2> /dev/null && stat /tmp/test.dd && rm /tmp/test.dd"
 test_tool "iconv" "echo x | iconv"
+test_tool "mktemp" "mktemp -t tmp.XXXXXXXX"
 
 # other
 test_local_array
